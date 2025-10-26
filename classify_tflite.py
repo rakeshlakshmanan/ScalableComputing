@@ -109,7 +109,7 @@ def main():
                 preds.append(output_data)
             decoded = decode_predictions(preds, symbols)[0]
             results.append((fname, decoded))
-            print(f"[{idx + 1}/{len(image_files)}] {fname}: {decoded}")
+            print("[{}/{}] {}: {}".format(idx + 1, len(image_files), fname, decoded))
 
         except Exception as e:
             print("Error processing {}: {}".format(fname, e))
