@@ -1,0 +1,6 @@
+{
+  "symbols": "123456789adeghjknoswxBCFJMNPQRTUVYZ{}[]%-\\#|+",
+  "max_length": 6,
+  "img_width": 192,
+  "img_height": 96
+}

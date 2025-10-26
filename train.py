@@ -2,17 +2,14 @@
 
 import os
 import numpy as np
-import tensorflow as tf
 from tensorflow import keras
 import cv2
 import argparse
-from pathlib import Path
 import json
 from sklearn.model_selection import train_test_split
 
 
 class CaptchaDataGenerator(keras.utils.Sequence):
-    """Custom data generator for CAPTCHA images"""
 
     def __init__(self, image_paths, labels, symbols, img_width, img_height,
                  max_length, batch_size=32, shuffle=True):
@@ -45,17 +42,13 @@ class CaptchaDataGenerator(keras.utils.Sequence):
 
     def __data_generation(self, batch_paths, batch_labels):
         X = np.zeros((self.batch_size, self.img_height, self.img_width, 1), dtype=np.float32)
-        # Create dictionary with output arrays for each character position
         y = {f'char_{i}': np.zeros((self.batch_size,), dtype=np.int32) for i in range(self.max_length)}
 
         for i, (img_path, label) in enumerate(zip(batch_paths, batch_labels)):
-            # Read and preprocess image
             img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
             img = cv2.resize(img, (self.img_width, self.img_height))
             img = img.astype(np.float32) / 255.0
             X[i] = np.expand_dims(img, axis=-1)
-
-            # Encode label - one array per character position
             for j, char in enumerate(label):
                 if j < self.max_length:
                     y[f'char_{j}'][i] = self.char_to_num[char]
@@ -64,18 +57,12 @@ class CaptchaDataGenerator(keras.utils.Sequence):
 
 
 def load_data(data_dir, symbols):
-    """Load all CAPTCHA images and their labels"""
     image_paths = []
     labels = []
-
-    # Search through all subdirectories
     for root, dirs, files in os.walk(data_dir):
         for file in files:
             if file.endswith('.png'):
-                # Extract label from filename (format: label_index.png)
                 label = file.split('_')[0]
-
-                # Validate label contains only known symbols
                 if all(char in symbols for char in label):
                     image_paths.append(os.path.join(root, file))
                     labels.append(label)
@@ -85,11 +72,8 @@ def load_data(data_dir, symbols):
 
 
 def build_model(img_width, img_height, max_length, num_classes):
-    """Build CNN model for CAPTCHA recognition"""
 
     inputs = keras.layers.Input(shape=(img_height, img_width, 1))
-
-    # Convolutional layers
     x = keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
     x = keras.layers.MaxPooling2D((2, 2))(x)
     x = keras.layers.BatchNormalization()(x)
@@ -106,13 +90,11 @@ def build_model(img_width, img_height, max_length, num_classes):
     x = keras.layers.MaxPooling2D((2, 2))(x)
     x = keras.layers.BatchNormalization()(x)
 
-    # Flatten and dense layers
     x = keras.layers.Flatten()(x)
     x = keras.layers.Dropout(0.5)(x)
     x = keras.layers.Dense(512, activation='relu')(x)
     x = keras.layers.Dropout(0.5)(x)
 
-    # Multiple output heads (one per character position)
     outputs = []
     for i in range(max_length):
         output = keras.layers.Dense(num_classes, activation='softmax', name=f'char_{i}')(x)
@@ -123,25 +105,20 @@ def build_model(img_width, img_height, max_length, num_classes):
 
 
 def train_model(args):
-    # Read symbols
     with open(args.symbols, 'r') as f:
         symbols = f.readline().strip()
 
     print(f"Using symbols: {symbols}")
     print(f"Number of classes: {len(symbols)}")
 
-    # Load data
     print("\nLoading data...")
     image_paths, labels = load_data(args.data_dir, symbols)
 
-    # Find max length
     max_length = max(len(label) for label in labels)
     print(f"Maximum CAPTCHA length: {max_length}")
 
-    # Pad labels to max length
     padded_labels = [label + ' ' * (max_length - len(label)) for label in labels]
 
-    # Split data
     train_paths, val_paths, train_labels, val_labels = train_test_split(
         image_paths, padded_labels, test_size=args.validation_split, random_state=42
     )
@@ -149,7 +126,6 @@ def train_model(args):
     print(f"Training samples: {len(train_paths)}")
     print(f"Validation samples: {len(val_paths)}")
 
-    # Create data generators
     train_gen = CaptchaDataGenerator(
         train_paths, train_labels, symbols + ' ',
         args.width, args.height, max_length,
@@ -162,12 +138,9 @@ def train_model(args):
         batch_size=args.batch_size, shuffle=False
     )
 
-    # Build model
     print("\nBuilding model...")
     model = build_model(args.width, args.height, max_length, len(symbols) + 1)
 
-    # Compile model
-    # For multiple outputs, provide metrics as a dictionary with keys matching output layer names
     metrics_dict = {f'char_{i}': 'accuracy' for i in range(max_length)}
 
     model.compile(
@@ -178,7 +151,6 @@ def train_model(args):
 
     model.summary()
 
-    # Callbacks
     callbacks = [
         keras.callbacks.ModelCheckpoint(
             os.path.join(args.output_dir, 'best_model.h5'),
@@ -198,7 +170,6 @@ def train_model(args):
         )
     ]
 
-    # Train
     print("\nStarting training...")
     history = model.fit(
         train_gen,
@@ -207,10 +178,8 @@ def train_model(args):
         callbacks=callbacks
     )
 
-    # Save final model
     model.save(os.path.join(args.output_dir, 'model_captcha.h5'))
 
-    # Save configuration
     config = {
         'symbols': symbols,
         'max_length': max_length,
@@ -221,7 +190,7 @@ def train_model(args):
     with open(os.path.join(args.output_dir, 'model_config.json'), 'w') as f:
         json.dump(config, f, indent=2)
 
-    print(f"\n✅ Training complete!")
+    print(f"\nTraining complete!")
     print(f"Models saved to: {args.output_dir}")
     print(f"Best validation loss: {min(history.history['val_loss']):.4f}")
 
@@ -248,11 +217,7 @@ def main():
                         help='Fraction of data for validation')
 
     args = parser.parse_args()
-
-    # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
-
-    # Train model
     train_model(args)
 
 
