@@ -81,8 +81,8 @@ def main():
     output_details = interpreter.get_output_details()
 
     print("Model loaded successfully")
-    print(f"Input shape: {input_details[0]['shape']}")
-    print(f"Number of outputs: {len(output_details)}")
+    print("Input shape: {}".format(input_details[0]['shape']))
+    print("Number of outputs: {}".format(len(output_details)))
 
     image_files = [f for f in os.listdir(args.captcha_dir) if f.endswith('.png')]
     image_files.sort()
