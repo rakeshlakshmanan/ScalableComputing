@@ -118,7 +118,7 @@ def main():
     with open(args.output_file, 'w') as f:
         f.write(args.name_in_output+"\n")
         for fname, pred in results:
-            f.write(f"{fname},{pred}\n")
+            f.write("{},{}\n".format(fname, pred))
 
     print("\nResults saved to {}".format(args.output_file))
     print("Classification complete!")
